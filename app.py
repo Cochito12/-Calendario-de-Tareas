@@ -33,14 +33,14 @@ cursos = ["Primero", "Segundo", "Tercero", "Cuarto", "Quinto"]
 
 # Archivo CSV base
 archivo = "tareas.csv"
-columnas = ["Fecha de entrega", "Curso", "Materia", "Profesora", "Tipo de tarea", "Hora de asignación", "Descripción"]
+columnas = ["Fecha en que se deja la tarea", "Curso", "Materia", "Profesora", "Tipo de tarea", "Hora de asignación", "Descripción"]
 
 if not os.path.exists(archivo) or os.stat(archivo).st_size == 0:
     df = pd.DataFrame(columns=columnas)
     df.to_csv(archivo, index=False)
 else:
     df = pd.read_csv(archivo)
-    df["Fecha de entrega"] = pd.to_datetime(df["Fecha de entrega"], errors="coerce")
+    df["Fecha en que se deja la tarea"] = pd.to_datetime(df["Fecha en que se deja la tarea"], errors="coerce")
 
 # Autenticación
 if "autenticado" not in st.session_state:
@@ -154,9 +154,10 @@ elif st.session_state.vista == "calendario":
         for i, row in df_curso.iterrows():
             fecha_entrega = pd.to_datetime(row["Fecha de entrega"])
             if pd.notnull(fecha_entrega):
-                props = {     
-                    k: (v.strftime("%Y-%m-%d %H:%M") if isinstance(v, (pd.Timestamp, datetime)) else v)     
-                    for k, v in row.to_dict().items() 
+                row_clean = row.where(pd.notnull(row), None)
+                props = {
+                    k: (v.strftime("%Y-%m-%d %H:%M") if isinstance(v, (pd.Timestamp, datetime)) else v)
+                    for k, v in row_clean.to_dict().items()
                 }
                 eventos.append({
                     "id": i,
@@ -166,7 +167,6 @@ elif st.session_state.vista == "calendario":
                     "color": colores.get(row["Materia"], "#ccc"),
                     "extendedProps": props
                 })
-
         config = {
             "initialView": "timeGridWeek",
             "locale": "es",
