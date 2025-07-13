@@ -47,6 +47,7 @@ cursos = ["Primero", "Segundo", "Tercero", "Cuarto", "Quinto"]
 def cargar_datos():
     data = sheet.get_all_records()
     df = pd.DataFrame(data)
+    df.columns = [col.strip().capitalize() for col in df.columns]  # Limpia y estandariza nombres
     df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
     return df
 
