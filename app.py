@@ -154,7 +154,10 @@ elif st.session_state.vista == "calendario":
         for i, row in df_curso.iterrows():
             fecha_entrega = pd.to_datetime(row["Fecha de entrega"])
             if pd.notnull(fecha_entrega):
-                props = row.to_dict()
+                props = {     
+                    k: (v.strftime("%Y-%m-%d %H:%M") if isinstance(v, (pd.Timestamp, datetime)) else v)     
+                    for k, v in row.to_dict().items() 
+                }
                 eventos.append({
                     "id": i,
                     "title": f"{row['Materia']} ({row['Tipo de tarea']})",
