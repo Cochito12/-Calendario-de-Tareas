@@ -1,10 +1,19 @@
-# 📚 Streamlit App Escolar Interactiva con Login, Calendario Visual y Coordinador Académico
+# 📚 Streamlit App Escolar con Google Sheets + Login + Calendario
 
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 from streamlit_calendar import calendar
-import os
+import gspread
+from google.oauth2.service_account import Credentials
+
+# 🛡️ Conexión con Google Sheets
+SERVICE_ACCOUNT_FILE = "/etc/secrets/credentials.json"
+scope = ["https://www.googleapis.com/auth/spreadsheets"]
+creds = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=scope)
+client = gspread.authorize(creds)
+spreadsheet = client.open("Calendario_Actividades")
+sheet = spreadsheet.worksheet("Tareas")
 
 # Configuración inicial
 st.set_page_config(page_title="📚 Calendario Escolar", layout="wide")
@@ -28,34 +37,25 @@ colores = {
     "Español": "#FF8D8D"
 }
 
-# Cursos disponibles
 cursos = ["Primero", "Segundo", "Tercero", "Cuarto", "Quinto"]
-
-# Archivo CSV base
-archivo = "tareas.csv"
 columnas = ["Fecha en que se deja la tarea", "Curso", "Materia", "Profesora", "Tipo de tarea", "Hora de asignación", "Descripción"]
 
-if not os.path.exists(archivo) or os.stat(archivo).st_size == 0:
-    df = pd.DataFrame(columns=columnas)
-    df.to_csv(archivo, index=False)
-else:
-    df = pd.read_csv(archivo)
-    df["Fecha en que se deja la tarea"] = pd.to_datetime(df["Fecha en que se deja la tarea"], errors="coerce")
+# Leer desde Google Sheets
+datos = sheet.get_all_records()
+df = pd.DataFrame(datos)
+df["Fecha en que se deja la tarea"] = pd.to_datetime(df["Fecha en que se deja la tarea"], errors="coerce")
 
 # Autenticación
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
 
 if not st.session_state.autenticado:
-    st.markdown(
-        """
-        <div style='text-align: center; padding: 60px 0;'>
-            <h1 style='font-size: 42px;'>🗓️ Calendario de Tareas Escolares</h1>
-            <p style='font-size: 18px; color: gray;'>Para evitar sobrecarga de actividades por curso — solo 3 tareas por día.</p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    st.markdown("""
+    <div style='text-align: center; padding: 60px 0;'>
+        <h1 style='font-size: 42px;'>🗓️ Calendario de Tareas Escolares</h1>
+        <p style='font-size: 18px; color: gray;'>Para evitar sobrecarga de actividades por curso — solo 3 tareas por día.</p>
+    </div>
+    """, unsafe_allow_html=True)
     usuario = st.text_input("👩‍🏫 Usuario")
     clave = st.text_input("🔑 Contraseña", type="password")
     if st.button("🎒 Iniciar sesión"):
@@ -70,7 +70,7 @@ if not st.session_state.autenticado:
             st.error("Usuario o contraseña incorrectos")
     st.stop()
 
-# Sidebar con info de sesión
+# Sidebar sesión
 with st.sidebar:
     st.markdown("### 👤 Sesión activa")
     st.write(f"**Nombre:** {st.session_state.nombre}")
@@ -81,7 +81,7 @@ with st.sidebar:
         st.success("Sesión cerrada.")
         st.rerun()
 
-# Página principal con selección
+# Página principal
 st.title("🎓 Calendario Escolar Interactivo")
 st.subheader("Hola profe 👩‍🏫 ¿Qué deseas hacer hoy?")
 col1, col2 = st.columns(2)
@@ -89,23 +89,8 @@ if col1.button("📝 Ingresar nueva actividad"):
     st.session_state.vista = "registro"
 if col2.button("📅 Consultar calendario"):
     st.session_state.vista = "calendario"
-
 if "vista" not in st.session_state:
     st.session_state.vista = "inicio"
-
-# Coordinador puede subir Excel
-if st.session_state.usuario == "coordinacion":
-    st.markdown("### 📂 Cargar tareas desde Excel")
-    archivo_excel = st.file_uploader("Sube tu archivo Excel con tareas", type=[".xlsx"])
-    if archivo_excel:
-        try:
-            tareas_excel = pd.read_excel(archivo_excel)
-            tareas_excel["Fecha en que se deja la tarea"] = pd.to_datetime(tareas_excel["Fecha en que se deja la tarea"], errors="coerce")
-            df = pd.concat([df, tareas_excel], ignore_index=True)
-            df.to_csv(archivo, index=False)
-            st.success("Tareas importadas correctamente")
-        except Exception as e:
-            st.error(f"Error al leer archivo: {e}")
 
 # REGISTRO
 if st.session_state.vista == "registro":
@@ -118,7 +103,6 @@ if st.session_state.vista == "registro":
         descripcion = st.text_area("Descripción")
 
         fecha_entrega = datetime.combine(fecha, hora)
-        df["Fecha en que se deja la tarea"] = pd.to_datetime(df["Fecha en que se deja la tarea"], errors="coerce")
         revisar = df[(df["Curso"] == curso) & (df["Fecha en que se deja la tarea"].dt.date == fecha)]
         puede_guardar = revisar.shape[0] < 3 or st.session_state.usuario == "coordinacion"
 
@@ -127,25 +111,24 @@ if st.session_state.vista == "registro":
 
         submit = st.form_submit_button("✅ Registrar")
         if submit and puede_guardar:
-            nueva = pd.DataFrame([{
-                "Fecha en que se deja la tarea": fecha_entrega,
-                "Curso": curso,
-                "Materia": st.session_state.materia,
-                "Profesora": st.session_state.nombre,
-                "Tipo de tarea": tipo,
-                "Hora de asignación": hora.strftime("%H:%M"),
-                "Descripción": descripcion
-            }])
-            df = pd.concat([df, nueva], ignore_index=True)
-            df.to_csv(archivo, index=False)
+            nueva_fila = [
+                fecha_entrega.strftime("%Y-%m-%d %H:%M"),
+                curso,
+                st.session_state.materia,
+                st.session_state.nombre,
+                tipo,
+                hora.strftime("%H:%M"),
+                descripcion
+            ]
+            sheet.append_row(nueva_fila)
             st.success("✅ Actividad registrada")
+            st.rerun()
 
 # CALENDARIO
 elif st.session_state.vista == "calendario":
     st.header("📅 Vista Semanal del Calendario Escolar")
     curso_sel = st.selectbox("Selecciona un curso", cursos)
     df_curso = df[df["Curso"] == curso_sel].copy()
-    df_curso["Fecha en que se deja la tarea"] = pd.to_datetime(df_curso["Fecha en que se deja la tarea"], errors="coerce")
 
     if df_curso.empty:
         st.info("No hay tareas aún para este curso.")
@@ -154,11 +137,18 @@ elif st.session_state.vista == "calendario":
         for i, row in df_curso.iterrows():
             fecha_entrega = pd.to_datetime(row["Fecha en que se deja la tarea"])
             if pd.notnull(fecha_entrega):
-                row_clean = row.where(pd.notnull(row), None)
+                visible = (
+                    st.session_state.usuario == "coordinacion" or
+                    row["Materia"] == st.session_state.materia
+                )
                 props = {
                     k: (v.strftime("%Y-%m-%d %H:%M") if isinstance(v, (pd.Timestamp, datetime)) else v)
-                    for k, v in row_clean.to_dict().items()
+                    for k, v in row.items()
+                    if k != "Descripción"
                 }
+                if visible:
+                    props["Descripción"] = row["Descripción"]
+
                 eventos.append({
                     "id": i,
                     "title": f"{row['Materia']} ({row['Tipo de tarea']})",
@@ -167,6 +157,7 @@ elif st.session_state.vista == "calendario":
                     "color": colores.get(row["Materia"], "#ccc"),
                     "extendedProps": props
                 })
+
         config = {
             "initialView": "timeGridWeek",
             "locale": "es",
@@ -185,23 +176,19 @@ elif st.session_state.vista == "calendario":
             evento = respuesta["event"]
             idx = evento["id"]
             tarea = df.iloc[int(idx)]
+
+            puede_ver_desc = (
+                tarea["Materia"] == st.session_state.materia or
+                st.session_state.usuario == "coordinacion"
+            )
+
             st.subheader("📌 Detalles de la tarea seleccionada")
             st.write(f"📘 **Materia:** {tarea['Materia']}")
             st.write(f"👩‍🏫 **Profesora:** {tarea['Profesora']}")
             st.write(f"📅 **Fecha en que se deja la tarea:** {tarea['Fecha en que se deja la tarea']}")
             st.write(f"🕓 **Hora asignada:** {tarea['Hora de asignación']}")
-            st.write(f"🧾 **Descripción:** {tarea['Descripción']}")
-
-            puede_borrar = (
-                tarea["Materia"] == st.session_state.materia and
-                tarea["Profesora"].strip().lower() == st.session_state.nombre.strip().lower()
-            ) or st.session_state.usuario == "coordinacion"
-
-            if puede_borrar:
-                if st.button("🗑️ Eliminar esta tarea"):
-                    df.drop(index=int(idx), inplace=True)
-                    df.to_csv(archivo, index=False)
-                    st.success("✅ Tarea eliminada")
-                    st.rerun()
+            if puede_ver_desc:
+                st.write(f"🧾 **Descripción:** {tarea['Descripción']}")
             else:
-                st.warning("⚠️ Solo puedes eliminar tus propias tareas en tu área.")
+                st.write("🧾 **Descripción:** 🔒 Solo visible para la profesora responsable")
+
