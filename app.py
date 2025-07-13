@@ -1,4 +1,4 @@
-# 📚 Streamlit App Escolar Interactiva con Login, Calendario Visual y Coordinador Académico
+# 📚 Streamlit App Escolar Interactiva con Login, Calendario Visual y Coordinadora Académica
 
 import streamlit as st
 import pandas as pd
@@ -16,7 +16,7 @@ profesoras = {
     "profe_paola": {"nombre": "Paola Riveros", "clave": "sociales789", "materia": "Sociales"},
     "profe_carol": {"nombre": "Carol Galán Rojas", "clave": "espanol000", "materia": "Español"},
     "profe_janeth": {"nombre": "Janeth Bernal", "clave": "ciencias321", "materia": "Ciencias Naturales"},
-    "coordinadacion": {"nombre": "Coordinador Académico", "clave": "admin2024", "materia": "TODAS"}
+    "coordinacion": {"nombre": "Coordinadora Académica", "clave": "admin2024", "materia": "TODAS"}
 }
 
 # Colores por materia
@@ -65,7 +65,7 @@ if not st.session_state.autenticado:
             st.session_state.nombre = profesoras[usuario]["nombre"]
             st.session_state.materia = profesoras[usuario]["materia"]
             st.success(f"Bienvenida, {st.session_state.nombre} ✨")
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Usuario o contraseña incorrectos")
     st.stop()
@@ -79,7 +79,7 @@ with st.sidebar:
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.success("Sesión cerrada.")
-        st.experimental_rerun()
+        st.rerun()
 
 # Página principal con selección
 st.title("🎓 Calendario Escolar Interactivo")
