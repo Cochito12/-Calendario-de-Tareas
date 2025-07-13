@@ -151,14 +151,16 @@ elif st.session_state.vista == "calendario":
     else:
         eventos = []
         for i, row in df_curso.iterrows():
-            eventos.append({
-                "id": i,
-                "title": f"{row['Materia']} ({row['Tipo de tarea']})",
-                "start": row["Fecha de entrega"].strftime("%Y-%m-%d"),
-                "end": row["Fecha de entrega"].strftime("%Y-%m-%d"),
-                "color": colores.get(row["Materia"], "#ccc"),
-                "extendedProps": row.to_dict()
-            })
+            fecha = row["Fecha de entrega"]
+            if pd.notnull(fecha):
+                eventos.append({
+                    "id": i,
+                    "title": f"{row['Materia']} ({row['Tipo de tarea']})",
+                    "start": fecha.strftime("%Y-%m-%d"),
+                    "end": fecha.strftime("%Y-%m-%d"),
+                    "color": colores.get(row["Materia"], "#ccc"),
+                    "extendedProps": row.to_dict()
+                })
 
         config = {
             "initialView": "timeGridWeek",
