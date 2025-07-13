@@ -1,4 +1,4 @@
-# 📚 Streamlit App Escolar Interactiva con Login, Calendario Visual y Coordinadora Académica
+# 📚 Streamlit App Escolar Interactiva con Login, Calendario Visual y Coordinador Académico
 
 import streamlit as st
 import pandas as pd
@@ -9,14 +9,14 @@ import os
 # Configuración inicial
 st.set_page_config(page_title="📚 Calendario Escolar", layout="wide")
 
-# Base de datos de profesoras (puedes moverlo a un JSON luego)
+# Base de datos de usuarios
 profesoras = {
-    "profe_heidy": {"nombre": "Heidy Rodríguez", "clave": "ingles123", "materia": "Inglés"},
-    "profe_marisol": {"nombre": "Marisol Cifuentes", "clave": "mate456", "materia": "Matemáticas"},
-    "profe_paola": {"nombre": "Paola Riveros", "clave": "sociales789", "materia": "Sociales"},
-    "profe_carol": {"nombre": "Carol Galán Rojas", "clave": "espanol000", "materia": "Español"},
-    "profe_janeth": {"nombre": "Janeth Bernal", "clave": "ciencias321", "materia": "Ciencias Naturales"},
-    "coordinacion": {"nombre": "Coordinadora Académica", "clave": "admin2024", "materia": "TODAS"}
+    "profe_ana": {"nombre": "Ana Martínez", "clave": "ingles123", "materia": "Inglés"},
+    "profe_juan": {"nombre": "Juan López", "clave": "mate456", "materia": "Matemáticas"},
+    "profe_luisa": {"nombre": "Luisa Rodríguez", "clave": "sociales789", "materia": "Sociales"},
+    "profe_carla": {"nombre": "Carla Gómez", "clave": "espanol000", "materia": "Español"},
+    "profe_omar": {"nombre": "Omar Reyes", "clave": "ciencias321", "materia": "Ciencias Naturales"},
+    "coordinador": {"nombre": "Coordinador Académico", "clave": "admin2024", "materia": "TODAS"},
 }
 
 # Colores por materia
@@ -65,7 +65,7 @@ if not st.session_state.autenticado:
             st.session_state.nombre = profesoras[usuario]["nombre"]
             st.session_state.materia = profesoras[usuario]["materia"]
             st.success(f"Bienvenida, {st.session_state.nombre} ✨")
-            st.rerun()
+            st.experimental_rerun()
         else:
             st.error("Usuario o contraseña incorrectos")
     st.stop()
@@ -79,7 +79,7 @@ with st.sidebar:
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.success("Sesión cerrada.")
-        st.rerun()
+        st.experimental_rerun()
 
 # Página principal con selección
 st.title("🎓 Calendario Escolar Interactivo")
@@ -97,6 +97,16 @@ if "vista" not in st.session_state:
 if st.session_state.usuario == "coordinador":
     st.markdown("### 📂 Cargar tareas desde Excel")
     archivo_excel = st.file_uploader("Sube tu archivo Excel con tareas", type=[".xlsx"])
+    if archivo_excel is not None:
+        try:
+            tareas_excel = pd.read_excel(archivo_excel)
+            tareas_excel = tareas_excel[columnas].fillna("")
+            tareas_excel["Fecha de entrega"] = pd.to_datetime(tareas_excel["Fecha de entrega"], errors="coerce")
+            df = pd.concat([df, tareas_excel], ignore_index=True)
+            df.to_csv(archivo, index=False)
+            st.success("Tareas importadas correctamente")
+        except Exception as e:
+            st.error(f"Error al leer archivo: {e}")
     if archivo_excel:
         try:
             tareas_excel = pd.read_excel(archivo_excel)
@@ -155,7 +165,7 @@ elif st.session_state.vista == "calendario":
         for i, row in df_curso.iterrows():
             fecha_entrega = pd.to_datetime(row["Fecha de entrega"])
             if pd.notnull(fecha_entrega):
-                props = row.to_dict()
+                props = row.fillna("").to_dict()
                 props["Fecha de entrega"] = fecha_entrega.strftime("%Y-%m-%d %H:%M")
                 eventos.append({
                     "id": i,
