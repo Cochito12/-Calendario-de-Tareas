@@ -9,14 +9,14 @@ import os
 # Configuración inicial
 st.set_page_config(page_title="📚 Calendario Escolar", layout="wide")
 
-# Base de datos de usuarios
+# Base de datos de profesoras actualizada
 profesoras = {
-    "profe_ana": {"nombre": "Ana Martínez", "clave": "ingles123", "materia": "Inglés"},
-    "profe_juan": {"nombre": "Juan López", "clave": "mate456", "materia": "Matemáticas"},
-    "profe_luisa": {"nombre": "Luisa Rodríguez", "clave": "sociales789", "materia": "Sociales"},
-    "profe_carla": {"nombre": "Carla Gómez", "clave": "espanol000", "materia": "Español"},
-    "profe_omar": {"nombre": "Omar Reyes", "clave": "ciencias321", "materia": "Ciencias Naturales"},
-    "coordinador": {"nombre": "Coordinador Académico", "clave": "admin2024", "materia": "TODAS"},
+    "profe_heidy": {"nombre": "Heidy Rodríguez", "clave": "ingles123", "materia": "Inglés"},
+    "profe_marisol": {"nombre": "Marisol Cifuentes", "clave": "mate456", "materia": "Matemáticas"},
+    "profe_paola": {"nombre": "Paola Riveros", "clave": "sociales789", "materia": "Sociales"},
+    "profe_carol": {"nombre": "Carol Galán Rojas", "clave": "espanol000", "materia": "Español"},
+    "profe_janeth": {"nombre": "Janeth Bernal", "clave": "ciencias321", "materia": "Ciencias Naturales"},
+    "coordinacion": {"nombre": "Coordinadora Académica", "clave": "admin2024", "materia": "TODAS"}
 }
 
 # Colores por materia
@@ -33,7 +33,7 @@ cursos = ["Primero", "Segundo", "Tercero", "Cuarto", "Quinto"]
 
 # Archivo CSV base
 archivo = "tareas.csv"
-columnas = ["Fecha de entrega", "Curso", "Materia", "Profesora", "Tipo de tarea", "Duración (min)", "Descripción"]
+columnas = ["Fecha de entrega", "Curso", "Materia", "Profesora", "Tipo de tarea", "Hora de asignación", "Descripción"]
 
 if not os.path.exists(archivo) or os.stat(archivo).st_size == 0:
     df = pd.DataFrame(columns=columnas)
@@ -65,7 +65,7 @@ if not st.session_state.autenticado:
             st.session_state.nombre = profesoras[usuario]["nombre"]
             st.session_state.materia = profesoras[usuario]["materia"]
             st.success(f"Bienvenida, {st.session_state.nombre} ✨")
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Usuario o contraseña incorrectos")
     st.stop()
@@ -79,7 +79,7 @@ with st.sidebar:
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.success("Sesión cerrada.")
-        st.experimental_rerun()
+        st.rerun()
 
 # Página principal con selección
 st.title("🎓 Calendario Escolar Interactivo")
@@ -93,20 +93,10 @@ if col2.button("📅 Consultar calendario"):
 if "vista" not in st.session_state:
     st.session_state.vista = "inicio"
 
-# Función para cargar tareas desde archivo Excel
-if st.session_state.usuario == "coordinador":
+# Coordinador puede subir Excel
+if st.session_state.usuario == "coordinacion":
     st.markdown("### 📂 Cargar tareas desde Excel")
     archivo_excel = st.file_uploader("Sube tu archivo Excel con tareas", type=[".xlsx"])
-    if archivo_excel is not None:
-        try:
-            tareas_excel = pd.read_excel(archivo_excel)
-            tareas_excel = tareas_excel[columnas].fillna("")
-            tareas_excel["Fecha de entrega"] = pd.to_datetime(tareas_excel["Fecha de entrega"], errors="coerce")
-            df = pd.concat([df, tareas_excel], ignore_index=True)
-            df.to_csv(archivo, index=False)
-            st.success("Tareas importadas correctamente")
-        except Exception as e:
-            st.error(f"Error al leer archivo: {e}")
     if archivo_excel:
         try:
             tareas_excel = pd.read_excel(archivo_excel)
@@ -117,21 +107,20 @@ if st.session_state.usuario == "coordinador":
         except Exception as e:
             st.error(f"Error al leer archivo: {e}")
 
-# REGISTRO DE ACTIVIDAD
+# REGISTRO
 if st.session_state.vista == "registro":
     st.header("📝 Registrar Nueva Actividad")
     with st.form("formulario"):
         curso = st.selectbox("Curso", cursos)
         fecha = st.date_input("Fecha de entrega", value=datetime.today())
-        hora = st.time_input("Hora de entrega", value=datetime.strptime("12:00", "%H:%M").time())
+        hora = st.time_input("Hora en que se dejó la tarea", value=datetime.strptime("12:00", "%H:%M").time())
         tipo = st.selectbox("Tipo de tarea", ["Lectura", "Ejercicio", "Proyecto", "Examen", "Presentación"])
-        duracion = st.slider("Duración estimada (min)", 5, 180, 30)
         descripcion = st.text_area("Descripción")
 
         fecha_entrega = datetime.combine(fecha, hora)
         df["Fecha de entrega"] = pd.to_datetime(df["Fecha de entrega"], errors="coerce")
         revisar = df[(df["Curso"] == curso) & (df["Fecha de entrega"].dt.date == fecha)]
-        puede_guardar = revisar.shape[0] < 3 or st.session_state.usuario == "coordinador"
+        puede_guardar = revisar.shape[0] < 3 or st.session_state.usuario == "coordinacion"
 
         if not puede_guardar:
             st.error("⚠️ Ya hay 3 tareas ese día para ese curso.")
@@ -144,14 +133,14 @@ if st.session_state.vista == "registro":
                 "Materia": st.session_state.materia,
                 "Profesora": st.session_state.nombre,
                 "Tipo de tarea": tipo,
-                "Duración (min)": duracion,
+                "Hora de asignación": hora.strftime("%H:%M"),
                 "Descripción": descripcion
             }])
             df = pd.concat([df, nueva], ignore_index=True)
             df.to_csv(archivo, index=False)
             st.success("✅ Actividad registrada")
 
-# CALENDARIO VISUAL
+# CALENDARIO
 elif st.session_state.vista == "calendario":
     st.header("📅 Vista Semanal del Calendario Escolar")
     curso_sel = st.selectbox("Selecciona un curso", cursos)
@@ -165,13 +154,12 @@ elif st.session_state.vista == "calendario":
         for i, row in df_curso.iterrows():
             fecha_entrega = pd.to_datetime(row["Fecha de entrega"])
             if pd.notnull(fecha_entrega):
-                props = row.fillna("").to_dict()
-                props["Fecha de entrega"] = fecha_entrega.strftime("%Y-%m-%d %H:%M")
+                props = row.to_dict()
                 eventos.append({
                     "id": i,
                     "title": f"{row['Materia']} ({row['Tipo de tarea']})",
                     "start": fecha_entrega.isoformat(),
-                    "end": (fecha_entrega + timedelta(minutes=30)).isoformat(),
+                    "end": (fecha_entrega + timedelta(minutes=60)).isoformat(),
                     "color": colores.get(row["Materia"], "#ccc"),
                     "extendedProps": props
                 })
@@ -198,13 +186,13 @@ elif st.session_state.vista == "calendario":
             st.write(f"📘 **Materia:** {tarea['Materia']}")
             st.write(f"👩‍🏫 **Profesora:** {tarea['Profesora']}")
             st.write(f"📅 **Fecha de entrega:** {tarea['Fecha de entrega']}")
-            st.write(f"🕒 **Duración:** {tarea['Duración (min)']} minutos")
+            st.write(f"🕓 **Hora asignada:** {tarea['Hora de asignación']}")
             st.write(f"🧾 **Descripción:** {tarea['Descripción']}")
 
             puede_borrar = (
                 tarea["Materia"] == st.session_state.materia and
                 tarea["Profesora"].strip().lower() == st.session_state.nombre.strip().lower()
-            ) or st.session_state.usuario == "coordinador"
+            ) or st.session_state.usuario == "coordinacion"
 
             if puede_borrar:
                 if st.button("🗑️ Eliminar esta tarea"):
