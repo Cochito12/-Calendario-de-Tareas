@@ -46,27 +46,29 @@ if "autenticado" not in st.session_state:
 
 if not st.session_state.autenticado:
     st.markdown(
-        \"\"\"\n
-        <div style='text-align: center; padding: 60px 0;'>\n
-            <h1 style='font-size: 42px;'>🗓️ Calendario de Tareas Escolares</h1>\n
-            <p style='font-size: 18px; color: gray;'>Para evitar sobrecarga de actividades por curso — solo 3 tareas por día.</p>\n
-        </div>\n
-        \"\"\", unsafe_allow_html=True\n
-    )\n
-    usuario = st.text_input(\"👩‍🏫 Usuario\")\n
-    clave = st.text_input(\"🔑 Contraseña\", type=\"password\")\n
-    if st.button(\"🎒 Iniciar sesión\"):\n
-        if usuario in profesoras and profesoras[usuario][\"clave\"] == clave:\n
-            st.session_state.autenticado = True\n
-            st.session_state.usuario = usuario\n
-            st.session_state.nombre = profesoras[usuario][\"nombre\"]\n
-            st.session_state.materia = profesoras[usuario][\"materia\"]\n
-            st.success(f\"Bienvenida, {st.session_state.nombre} ✨\")\n
-            st.experimental_rerun()\n
-        else:\n
-            st.error(\"Usuario o contraseña incorrectos\")\n
-    st.stop()
+        """
+        <div style='text-align: center; padding: 60px 0;'>
+            <h1 style='font-size: 42px;'>🗓️ Calendario de Tareas Escolares</h1>
+            <p style='font-size: 18px; color: gray;'>Para evitar sobrecarga de actividades por curso — solo 3 tareas por día.</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
+    usuario = st.text_input("👩‍🏫 Usuario")
+    clave = st.text_input("🔑 Contraseña", type="password")
+    if st.button("🎒 Iniciar sesión"):
+        if usuario in profesoras and profesoras[usuario]["clave"] == clave:
+            st.session_state.autenticado = True
+            st.session_state.usuario = usuario
+            st.session_state.nombre = profesoras[usuario]["nombre"]
+            st.session_state.materia = profesoras[usuario]["materia"]
+            st.success(f"Bienvenida, {st.session_state.nombre} ✨")
+            st.experimental_rerun()
+        else:
+            st.error("Usuario o contraseña incorrectos")
+    st.stop()
+    
 # Sidebar con info de sesión
 with st.sidebar:
     st.markdown("### 👤 Sesión activa")
