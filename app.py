@@ -1,4 +1,4 @@
-# 📚 Streamlit App Escolar Conectada a Google Sheets (Versión Final)
+# 📚 Streamlit App Escolar Conectada a Google Sheets (Versión Final, sin CSV)
 
 import streamlit as st
 import pandas as pd
@@ -47,17 +47,13 @@ cursos = ["Primero", "Segundo", "Tercero", "Cuarto", "Quinto"]
 def cargar_datos():
     data = sheet.get_all_records()
     df = pd.DataFrame(data)
-
-    # 🧼 Limpia espacios alrededor de los nombres
     df.columns = [col.strip() for col in df.columns]
 
-    # 👀 Verifica que exista 'Fecha' literal
     if "Fecha" not in df.columns:
         st.error("❌ La columna 'Fecha' no fue encontrada. Asegúrate de que esté bien escrita en la fila A1.")
         st.write("Columnas detectadas:", df.columns.tolist())
         st.stop()
 
-    # ✅ Convierte la columna Fecha a datetime
     df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
     return df
 
