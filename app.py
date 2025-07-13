@@ -1,24 +1,29 @@
-# 📚 Streamlit App Escolar con Google Sheets + Login + Calendario
+# 📚 Streamlit App Escolar Conectada a Google Sheets (Versión Final)
 
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 from streamlit_calendar import calendar
 import gspread
-from google.oauth2.service_account import Credentials
+from oauth2client.service_account import ServiceAccountCredentials
 
-# 🛡️ Conexión con Google Sheets
+# 📁 Ruta del Secret File en Render
 SERVICE_ACCOUNT_FILE = "/etc/secrets/credentials.json"
-scope = ["https://www.googleapis.com/auth/spreadsheets"]
-creds = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=scope)
-client = gspread.authorize(creds)
-spreadsheet = client.open("Calendario_Actividades")
-sheet = spreadsheet.worksheet("Tareas")
 
-# Configuración inicial
+# 🔐 Autenticación con scopes correctos
+scope = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive"
+]
+
+credentials = ServiceAccountCredentials.from_json_keyfile_name(SERVICE_ACCOUNT_FILE, scope)
+client = gspread.authorize(credentials)
+sheet = client.open("Calendario_Actividades").worksheet("Tareas")
+
+# Configuración de página
 st.set_page_config(page_title="📚 Calendario Escolar", layout="wide")
 
-# Base de datos de profesoras actualizada
+# Profes y Coordinación
 profesoras = {
     "profe_heidy": {"nombre": "Heidy Rodríguez", "clave": "ingles123", "materia": "Inglés"},
     "profe_marisol": {"nombre": "Marisol Cifuentes", "clave": "mate456", "materia": "Matemáticas"},
@@ -28,7 +33,6 @@ profesoras = {
     "coordinacion": {"nombre": "Coordinadora Académica", "clave": "admin2024", "materia": "TODAS"}
 }
 
-# Colores por materia
 colores = {
     "Inglés": "#91D1C2",
     "Sociales": "#F9B872",
@@ -38,14 +42,19 @@ colores = {
 }
 
 cursos = ["Primero", "Segundo", "Tercero", "Cuarto", "Quinto"]
-columnas = ["Fecha en que se deja la tarea", "Curso", "Materia", "Profesora", "Tipo de tarea", "Hora de asignación", "Descripción"]
 
-# Leer desde Google Sheets
-datos = sheet.get_all_records()
-df = pd.DataFrame(datos)
-df["Fecha en que se deja la tarea"] = pd.to_datetime(df["Fecha en que se deja la tarea"], errors="coerce")
+# 🔄 Cargar tareas desde Google Sheets
+def cargar_datos():
+    data = sheet.get_all_records()
+    df = pd.DataFrame(data)
+    df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
+    return df
 
-# Autenticación
+# 💾 Guardar nueva fila en Google Sheets
+def guardar_tarea(nueva_fila):
+    sheet.append_row(nueva_fila)
+
+# Autenticación de sesión
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
 
@@ -70,7 +79,7 @@ if not st.session_state.autenticado:
             st.error("Usuario o contraseña incorrectos")
     st.stop()
 
-# Sidebar sesión
+# Sidebar
 with st.sidebar:
     st.markdown("### 👤 Sesión activa")
     st.write(f"**Nombre:** {st.session_state.nombre}")
@@ -95,24 +104,25 @@ if "vista" not in st.session_state:
 # REGISTRO
 if st.session_state.vista == "registro":
     st.header("📝 Registrar Nueva Actividad")
+    df = cargar_datos()
     with st.form("formulario"):
         curso = st.selectbox("Curso", cursos)
-        fecha = st.date_input("Fecha en que se deja la tarea", value=datetime.today())
+        fecha = st.date_input("Fecha", value=datetime.today())
         hora = st.time_input("Hora en que se dejó la tarea", value=datetime.strptime("12:00", "%H:%M").time())
         tipo = st.selectbox("Tipo de tarea", ["Lectura", "Ejercicio", "Proyecto", "Examen", "Presentación"])
         descripcion = st.text_area("Descripción")
 
-        fecha_entrega = datetime.combine(fecha, hora)
-        revisar = df[(df["Curso"] == curso) & (df["Fecha en que se deja la tarea"].dt.date == fecha)]
+        fecha_completa = datetime.combine(fecha, hora)
+        revisar = df[(df["Curso"] == curso) & (df["Fecha"].dt.date == fecha)]
         puede_guardar = revisar.shape[0] < 3 or st.session_state.usuario == "coordinacion"
 
         if not puede_guardar:
             st.error("⚠️ Ya hay 3 tareas ese día para ese curso.")
 
-        submit = st.form_submit_button("✅ Registrar")
-        if submit and puede_guardar:
-            nueva_fila = [
-                fecha_entrega.strftime("%Y-%m-%d %H:%M"),
+        if st.form_submit_button("✅ Registrar") and puede_guardar:
+            fila = [
+                fecha_completa.strftime("%Y-%m-%d %H:%M"),
+                "-",  # Columna "Tarea" no usada
                 curso,
                 st.session_state.materia,
                 st.session_state.nombre,
@@ -120,13 +130,14 @@ if st.session_state.vista == "registro":
                 hora.strftime("%H:%M"),
                 descripcion
             ]
-            sheet.append_row(nueva_fila)
+            guardar_tarea(fila)
             st.success("✅ Actividad registrada")
             st.rerun()
 
 # CALENDARIO
 elif st.session_state.vista == "calendario":
     st.header("📅 Vista Semanal del Calendario Escolar")
+    df = cargar_datos()
     curso_sel = st.selectbox("Selecciona un curso", cursos)
     df_curso = df[df["Curso"] == curso_sel].copy()
 
@@ -135,27 +146,22 @@ elif st.session_state.vista == "calendario":
     else:
         eventos = []
         for i, row in df_curso.iterrows():
-            fecha_entrega = pd.to_datetime(row["Fecha en que se deja la tarea"])
+            fecha_entrega = pd.to_datetime(row["Fecha"])
             if pd.notnull(fecha_entrega):
-                visible = (
-                    st.session_state.usuario == "coordinacion" or
-                    row["Materia"] == st.session_state.materia
-                )
-                props = {
-                    k: (v.strftime("%Y-%m-%d %H:%M") if isinstance(v, (pd.Timestamp, datetime)) else v)
-                    for k, v in row.items()
-                    if k != "Descripción"
-                }
-                if visible:
-                    props["Descripción"] = row["Descripción"]
-
+                puede_ver = (st.session_state.usuario == "coordinacion" or row["Materia"] == st.session_state.materia)
+                descripcion = row["Descripción"] if puede_ver else "🔒 Descripción no visible"
                 eventos.append({
                     "id": i,
                     "title": f"{row['Materia']} ({row['Tipo de tarea']})",
                     "start": fecha_entrega.isoformat(),
                     "end": (fecha_entrega + timedelta(minutes=60)).isoformat(),
                     "color": colores.get(row["Materia"], "#ccc"),
-                    "extendedProps": props
+                    "extendedProps": {
+                        "Curso": row["Curso"],
+                        "Profesora": row["Profesora"],
+                        "Hora de asignación": row["Hora de asignación"],
+                        "Descripción": descripcion
+                    }
                 })
 
         config = {
@@ -177,18 +183,12 @@ elif st.session_state.vista == "calendario":
             idx = evento["id"]
             tarea = df.iloc[int(idx)]
 
-            puede_ver_desc = (
-                tarea["Materia"] == st.session_state.materia or
-                st.session_state.usuario == "coordinacion"
-            )
-
             st.subheader("📌 Detalles de la tarea seleccionada")
             st.write(f"📘 **Materia:** {tarea['Materia']}")
             st.write(f"👩‍🏫 **Profesora:** {tarea['Profesora']}")
-            st.write(f"📅 **Fecha en que se deja la tarea:** {tarea['Fecha en que se deja la tarea']}")
+            st.write(f"📅 **Fecha:** {tarea['Fecha']}")
             st.write(f"🕓 **Hora asignada:** {tarea['Hora de asignación']}")
-            if puede_ver_desc:
+            if st.session_state.usuario == "coordinacion" or tarea['Materia'] == st.session_state.materia:
                 st.write(f"🧾 **Descripción:** {tarea['Descripción']}")
             else:
-                st.write("🧾 **Descripción:** 🔒 Solo visible para la profesora responsable")
-
+                st.info("🔒 La descripción solo es visible para la profesora responsable o coordinación.")
