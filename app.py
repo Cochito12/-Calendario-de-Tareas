@@ -2,7 +2,7 @@
 
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from streamlit_calendar import calendar
 import os
 
@@ -12,11 +12,11 @@ st.set_page_config(page_title="📚 Calendario Escolar", layout="wide")
 # Base de datos de profesoras (puedes moverlo a un JSON luego)
 profesoras = {
     "profe_heidy": {"nombre": "Heidy Rodríguez", "clave": "ingles123", "materia": "Inglés"},
-    "profe_Marisol": {"nombre": "Marisol Cifuentes", "clave": "mate456", "materia": "Matemáticas"},
+    "profe_marisol": {"nombre": "Marisol Cifuentes", "clave": "mate456", "materia": "Matemáticas"},
     "profe_paola": {"nombre": "Paola Riveros", "clave": "sociales789", "materia": "Sociales"},
     "profe_carol": {"nombre": "Carol Galán Rojas", "clave": "espanol000", "materia": "Español"},
     "profe_janeth": {"nombre": "Janeth Bernal", "clave": "ciencias321", "materia": "Ciencias Naturales"},
-    "coordinador": {"nombre": "Coordinador Académico", "clave": "admin2024", "materia": "TODAS"}
+    "coordinadacion": {"nombre": "Coordinador Académico", "clave": "admin2024", "materia": "TODAS"}
 }
 
 # Colores por materia
@@ -113,10 +113,12 @@ if st.session_state.vista == "registro":
     with st.form("formulario"):
         curso = st.selectbox("Curso", cursos)
         fecha = st.date_input("Fecha de entrega", value=datetime.today())
+        hora = st.time_input("Hora de entrega", value=datetime.strptime("12:00", "%H:%M").time())
         tipo = st.selectbox("Tipo de tarea", ["Lectura", "Ejercicio", "Proyecto", "Examen", "Presentación"])
         duracion = st.slider("Duración estimada (min)", 5, 180, 30)
         descripcion = st.text_area("Descripción")
 
+        fecha_entrega = datetime.combine(fecha, hora)
         df["Fecha de entrega"] = pd.to_datetime(df["Fecha de entrega"], errors="coerce")
         revisar = df[(df["Curso"] == curso) & (df["Fecha de entrega"].dt.date == fecha)]
         puede_guardar = revisar.shape[0] < 3 or st.session_state.usuario == "coordinador"
@@ -127,7 +129,7 @@ if st.session_state.vista == "registro":
         submit = st.form_submit_button("✅ Registrar")
         if submit and puede_guardar:
             nueva = pd.DataFrame([{
-                "Fecha de entrega": fecha,
+                "Fecha de entrega": fecha_entrega,
                 "Curso": curso,
                 "Materia": st.session_state.materia,
                 "Profesora": st.session_state.nombre,
@@ -151,15 +153,17 @@ elif st.session_state.vista == "calendario":
     else:
         eventos = []
         for i, row in df_curso.iterrows():
-            fecha = row["Fecha de entrega"]
-            if pd.notnull(fecha):
+            fecha_entrega = pd.to_datetime(row["Fecha de entrega"])
+            if pd.notnull(fecha_entrega):
+                props = row.to_dict()
+                props["Fecha de entrega"] = fecha_entrega.strftime("%Y-%m-%d %H:%M")
                 eventos.append({
                     "id": i,
                     "title": f"{row['Materia']} ({row['Tipo de tarea']})",
-                    "start": fecha.strftime("%Y-%m-%d"),
-                    "end": fecha.strftime("%Y-%m-%d"),
+                    "start": fecha_entrega.isoformat(),
+                    "end": (fecha_entrega + timedelta(minutes=30)).isoformat(),
                     "color": colores.get(row["Materia"], "#ccc"),
-                    "extendedProps": row.to_dict()
+                    "extendedProps": props
                 })
 
         config = {
@@ -183,7 +187,7 @@ elif st.session_state.vista == "calendario":
             st.subheader("📌 Detalles de la tarea seleccionada")
             st.write(f"📘 **Materia:** {tarea['Materia']}")
             st.write(f"👩‍🏫 **Profesora:** {tarea['Profesora']}")
-            st.write(f"📅 **Fecha de entrega:** {tarea['Fecha de entrega'].date()}")
+            st.write(f"📅 **Fecha de entrega:** {tarea['Fecha de entrega']}")
             st.write(f"🕒 **Duración:** {tarea['Duración (min)']} minutos")
             st.write(f"🧾 **Descripción:** {tarea['Descripción']}")
 
