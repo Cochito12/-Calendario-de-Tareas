@@ -1,4 +1,4 @@
-# 📚 Streamlit App Escolar Conectada a Google Sheets (Versión Final, sin CSV)
+# 📚 Streamlit App Escolar Conectada a Google Sheets (Versión Final, robusta sin CSV)
 
 import streamlit as st
 import pandas as pd
@@ -43,14 +43,18 @@ colores = {
 
 cursos = ["Primero", "Segundo", "Tercero", "Cuarto", "Quinto"]
 
-# 🔄 Cargar tareas desde Google Sheets
+# 🔄 Cargar tareas desde Google Sheets (versión robusta)
 def cargar_datos():
     data = sheet.get_all_records()
     df = pd.DataFrame(data)
     df.columns = [col.strip() for col in df.columns]
 
+    if df.empty:
+        columnas = ["Fecha", "Tarea", "Curso", "Materia", "Profesora", "Tipo de tarea", "Hora de asignación", "Descripción"]
+        df = pd.DataFrame(columns=columnas)
+
     if "Fecha" not in df.columns:
-        st.error("❌ La columna 'Fecha' no fue encontrada. Asegúrate de que esté bien escrita en la fila A1.")
+        st.error("❌ La columna 'Fecha' no fue encontrada. Verifica que esté bien escrita en la fila A1 de la hoja 'Tareas'.")
         st.write("Columnas detectadas:", df.columns.tolist())
         st.stop()
 
@@ -129,7 +133,7 @@ if st.session_state.vista == "registro":
         if st.form_submit_button("✅ Registrar") and puede_guardar:
             fila = [
                 fecha_completa.strftime("%Y-%m-%d %H:%M"),
-                "-",  # Columna "Tarea" no usada
+                "-",
                 curso,
                 st.session_state.materia,
                 st.session_state.nombre,
