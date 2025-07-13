@@ -100,7 +100,7 @@ if st.session_state.usuario == "coordinacion":
     if archivo_excel:
         try:
             tareas_excel = pd.read_excel(archivo_excel)
-            tareas_excel["Fecha de entrega"] = pd.to_datetime(tareas_excel["Fecha de entrega"], errors="coerce")
+            tareas_excel["Fecha en que se deja la tarea"] = pd.to_datetime(tareas_excel["Fecha en que se deja la tarea"], errors="coerce")
             df = pd.concat([df, tareas_excel], ignore_index=True)
             df.to_csv(archivo, index=False)
             st.success("Tareas importadas correctamente")
@@ -112,14 +112,14 @@ if st.session_state.vista == "registro":
     st.header("📝 Registrar Nueva Actividad")
     with st.form("formulario"):
         curso = st.selectbox("Curso", cursos)
-        fecha = st.date_input("Fecha de entrega", value=datetime.today())
+        fecha = st.date_input("Fecha en que se deja la tarea", value=datetime.today())
         hora = st.time_input("Hora en que se dejó la tarea", value=datetime.strptime("12:00", "%H:%M").time())
         tipo = st.selectbox("Tipo de tarea", ["Lectura", "Ejercicio", "Proyecto", "Examen", "Presentación"])
         descripcion = st.text_area("Descripción")
 
         fecha_entrega = datetime.combine(fecha, hora)
-        df["Fecha de entrega"] = pd.to_datetime(df["Fecha de entrega"], errors="coerce")
-        revisar = df[(df["Curso"] == curso) & (df["Fecha de entrega"].dt.date == fecha)]
+        df["Fecha en que se deja la tarea"] = pd.to_datetime(df["Fecha en que se deja la tarea"], errors="coerce")
+        revisar = df[(df["Curso"] == curso) & (df["Fecha en que se deja la tarea"].dt.date == fecha)]
         puede_guardar = revisar.shape[0] < 3 or st.session_state.usuario == "coordinacion"
 
         if not puede_guardar:
@@ -128,7 +128,7 @@ if st.session_state.vista == "registro":
         submit = st.form_submit_button("✅ Registrar")
         if submit and puede_guardar:
             nueva = pd.DataFrame([{
-                "Fecha de entrega": fecha_entrega,
+                "Fecha en que se deja la tarea": fecha_entrega,
                 "Curso": curso,
                 "Materia": st.session_state.materia,
                 "Profesora": st.session_state.nombre,
@@ -145,14 +145,14 @@ elif st.session_state.vista == "calendario":
     st.header("📅 Vista Semanal del Calendario Escolar")
     curso_sel = st.selectbox("Selecciona un curso", cursos)
     df_curso = df[df["Curso"] == curso_sel].copy()
-    df_curso["Fecha de entrega"] = pd.to_datetime(df_curso["Fecha de entrega"], errors="coerce")
+    df_curso["Fecha en que se deja la tarea"] = pd.to_datetime(df_curso["Fecha en que se deja la tarea"], errors="coerce")
 
     if df_curso.empty:
         st.info("No hay tareas aún para este curso.")
     else:
         eventos = []
         for i, row in df_curso.iterrows():
-            fecha_entrega = pd.to_datetime(row["Fecha de entrega"])
+            fecha_entrega = pd.to_datetime(row["Fecha en que se deja la tarea"])
             if pd.notnull(fecha_entrega):
                 row_clean = row.where(pd.notnull(row), None)
                 props = {
@@ -188,7 +188,7 @@ elif st.session_state.vista == "calendario":
             st.subheader("📌 Detalles de la tarea seleccionada")
             st.write(f"📘 **Materia:** {tarea['Materia']}")
             st.write(f"👩‍🏫 **Profesora:** {tarea['Profesora']}")
-            st.write(f"📅 **Fecha de entrega:** {tarea['Fecha de entrega']}")
+            st.write(f"📅 **Fecha en que se deja la tarea:** {tarea['Fecha en que se deja la tarea']}")
             st.write(f"🕓 **Hora asignada:** {tarea['Hora de asignación']}")
             st.write(f"🧾 **Descripción:** {tarea['Descripción']}")
 
